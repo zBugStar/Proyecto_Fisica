@@ -142,12 +142,21 @@ def run_spring_simulation():
     mass_slider = Slider(20, HEIGHT - 40, 200, 1, 100, particle.mass, "Masa", "kg")
 
     oscillation_count = 0
-    previous_direction = None
+    previous_above = None
     equilibrium_y = fixed_point[1] + rest_length
-    trail = []  # historial de posiciones
-    max_trail_length = 100  # cantidad máxima de puntos en la trayectoria
+    trail = []
+    max_trail_length = 100
+
+    # Botones
+    start_button_rect = pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 - 30, 200, 60)
+    pause_button_rect = pygame.Rect(WIDTH // 2 + 250, HEIGHT - 60, 120, 40)
+    reset_button_rect = pygame.Rect(WIDTH // 2 + 100, HEIGHT - 60, 120, 40)
+    simulation_started = False
+    paused = False
 
     running = True
+    last_cross = None  # Para evitar dobles conteos
+
     while running:
         dt = clock.tick(60) / 1000
 
@@ -156,57 +165,107 @@ def run_spring_simulation():
                 running = False
             k_slider.handle_event(event)
             mass_slider.handle_event(event)
+            if not simulation_started:
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if start_button_rect.collidepoint(event.pos):
+                        simulation_started = True
+                        paused = False
+                        oscillation_count = 0
+                        previous_above = None
+                        last_cross = None
+                        particle.mass = mass_slider.value
+                        particle.vy = 0
+                        particle.y = fixed_point[1] + rest_length
+                        trail.clear()
+            else:
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if pause_button_rect.collidepoint(event.pos):
+                        paused = not paused
+                    if reset_button_rect.collidepoint(event.pos):
+                        oscillation_count = 0
+                        previous_above = None
+                        last_cross = None
+                        particle.mass = mass_slider.value
+                        particle.vy = 0
+                        particle.y = fixed_point[1] + rest_length
+                        trail.clear()
+                        paused = False
 
-        # Actualizar sliders
-        particle.mass = mass_slider.value
-        k = k_slider.value
-
-        # Física en eje Y
-        dy = particle.y - fixed_point[1]
-        dist = dy
-        force = -k * (dist - rest_length)  # Fuerza de resorte (Hooke)
-        force += particle.mass * g         # Gravedad
-        ay = force / particle.mass
-        particle.vy += ay * dt
-        particle.y += particle.vy * dt
-
-        # Detectar oscilación (pasa hacia abajo por el punto de equilibrio)
-        if previous_direction is not None and particle.y > equilibrium_y and previous_direction < 0:
-            oscillation_count += 1
-        previous_direction = particle.vy
-
-        # Rebote si toca el fondo
-        if particle.y + particle.radius > HEIGHT:
-            particle.y = HEIGHT - particle.radius
-            particle.vy *= -0.8
-
-        # Guardar trayectoria
-        trail.append((int(particle.x), int(particle.y)))
-        if len(trail) > max_trail_length:
-            trail.pop(0)
-
-        # Dibujar
         screen.fill((0, 0, 0))
 
-        # Resorte
+        if not simulation_started:
+            # Dibuja la partícula en reposo (posición de equilibrio)
+            particle.mass = mass_slider.value
+            k = k_slider.value
+            particle.y = fixed_point[1] + rest_length
+            particle.vy = 0
+
+            pygame.draw.line(screen, (255, 255, 255), fixed_point, (particle.x, particle.y), 2)
+            pygame.draw.circle(screen, (255, 0, 0), fixed_point, 10)
+            particle.draw(screen)
+            k_slider.draw(screen)
+            mass_slider.draw(screen)
+            pygame.draw.rect(screen, (50, 200, 50), start_button_rect)
+            text = font.render("Iniciar simulación", True, (255, 255, 255))
+            screen.blit(text, (start_button_rect.x + 25, start_button_rect.y + 18))
+            screen.blit(font.render("Ajusta los valores y presiona el botón", True, (255, 255, 255)), (10, 10))
+            pygame.display.flip()
+            continue
+
+        # --- Simulación física ---
+        if not paused:
+            particle.mass = mass_slider.value
+            k = k_slider.value
+
+            dy = particle.y - fixed_point[1]
+            dist = dy
+            force = -k * (dist - rest_length)  # Fuerza de resorte (Hooke)
+            force += particle.mass * g         # Gravedad
+            ay = force / particle.mass
+            particle.vy += ay * dt
+            particle.y += particle.vy * dt
+
+            # Conteo de oscilaciones: cuenta cada cruce por el equilibrio (ambos sentidos)
+            is_above = particle.y < equilibrium_y
+            if previous_above is not None and is_above != previous_above:
+                # Solo cuenta si no es el mismo cruce que el anterior
+                if last_cross != is_above:
+                    oscillation_count += 1
+                    last_cross = is_above
+            previous_above = is_above
+
+            # Rebote si toca el fondo
+            if particle.y + particle.radius > HEIGHT:
+                particle.y = HEIGHT - particle.radius
+                particle.vy *= -0.8
+
+            # Guardar trayectoria
+            trail.append((int(particle.x), int(particle.y)))
+            if len(trail) > max_trail_length:
+                trail.pop(0)
+
+        # Dibujar resorte y partícula
         pygame.draw.line(screen, (255, 255, 255), fixed_point, (particle.x, particle.y), 2)
         pygame.draw.circle(screen, (255, 0, 0), fixed_point, 10)
-
-        # Trayectoria
         if len(trail) > 1:
             pygame.draw.lines(screen, (0, 255, 255), False, trail, 2)
-
-        # Partícula
         particle.draw(screen)
-
-        # Sliders e info
         k_slider.draw(screen)
         mass_slider.draw(screen)
+
+        # Botones de pausa y reinicio
+        pygame.draw.rect(screen, (200, 200, 50), pause_button_rect)
+        pause_text = font.render("Pausar" if not paused else "Reanudar", True, (0, 0, 0))
+        screen.blit(pause_text, (pause_button_rect.x + 10, pause_button_rect.y + 10))
+
+        pygame.draw.rect(screen, (200, 50, 50), reset_button_rect)
+        reset_text = font.render("Reiniciar", True, (255, 255, 255))
+        screen.blit(reset_text, (reset_button_rect.x + 15, reset_button_rect.y + 10))
+
         screen.blit(font.render("ESC para volver", True, (255, 255, 255)), (10, 10))
         screen.blit(font.render(f"Oscilaciones: {oscillation_count}", True, (255, 255, 255)), (10, 70))
-
         pygame.display.flip()
-
+    
 
 
 # --------- Iniciar ---------
