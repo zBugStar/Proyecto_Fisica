@@ -28,7 +28,7 @@ input_boxes = {
     "angulo": pygame.Rect(100, 100, 140, 32),
     "potencia": pygame.Rect(100, 150, 140, 32)
 }
-inputs = {"masa": "", "angulo": "", "potencia": ""}
+inputs = {"masa": "Kg", "angulo": "Grados", "potencia": "Joules"}
 active_input = None
 
 def calcular_velocidad_inicial(potencia, masa):
@@ -155,7 +155,7 @@ def main():
                     aciertos = 0
                     resultado = ""
                     puntos_disparo = []
-                    inputs = {"masa": "", "angulo": "", "potencia": ""}
+                    inputs = {"masa": "Kg", "angulo": "Grados", "potencia": "Joules"}
                     estado_juego = "jugando"
                     objetivo_x_m = random.uniform(35, 75)
                     objetivo_y_m = random.uniform(2, 10)
@@ -252,7 +252,7 @@ def main():
                         aciertos = 0
                         resultado = ""
                         puntos_disparo = []
-                        inputs = {"masa": "", "angulo": "", "potencia": ""}
+                        inputs = {"masa": "Kg", "angulo": "Grados", "potencia": "Joules"}
                         estado_juego = "jugando"
                         objetivo_x_m = random.uniform(35, 70)
                         objetivo_y_m = random.uniform(3, 30)
